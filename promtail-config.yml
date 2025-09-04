@@ -1,0 +1,52 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+clients:
+  - url: ${LOKI_URL}
+
+positions:
+  filename: /tmp/positions.yaml
+
+scrape_configs:
+  # ===== systemd journal =====
+  - job_name: journal
+    journal:
+      path: /var/log/journal
+      max_age: 12h
+      labels:
+        job: systemd-journal
+    # Use the real machine hostname from the journal itself
+    relabel_configs:
+      - source_labels: ['__journal__hostname']
+        target_label: 'host'
+      - source_labels: ['__journal__systemd_unit']
+        target_label: 'unit'
+      - source_labels: ['__journal__transport']
+        target_label: 'transport'
+
+  # ===== classic Ubuntu log files =====
+  - job_name: ubuntu-logs
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+      - targets: [localhost]
+        labels:
+          job: auth
+          __path__: /var/log/auth.log
+      - targets: [localhost]
+        labels:
+          job: kern
+          __path__: /var/log/kern.log
+      # Add more files if needed:
+      # - targets: [localhost]
+      #   labels:
+      #     job: dpkg
+      #     __path__: /var/log/dpkg.log
+
+    # Copy Promtail's runtime hostname into a "host" label for file logs
+    relabel_configs:
+      - source_labels: ['__hostname__']
+        target_label: 'host'
